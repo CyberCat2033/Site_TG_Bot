@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "dgSpecHash": "N0Ah23f4lc31TuAH1FTD17+rvCGuyqVdRjOGO4QAuMwiM4L01lQbXOmuFE/mW91xgdRMfcDDuMSv56lTZa07og==",
+  "success": true,
+  "projectFilePath": "/home/cybercat/Site_TG_Bot/Site_TG_Bot.csproj",
+  "expectedPackageFiles": [
+    "/home/cybercat/.nuget/packages/microsoft.extensions.configuration.abstractions/8.0.0/microsoft.extensions.configuration.abstractions.8.0.0.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/microsoft.extensions.configuration.binder/8.0.0/microsoft.extensions.configuration.binder.8.0.0.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/microsoft.extensions.dependencyinjection.abstractions/8.0.0/microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/microsoft.extensions.options/8.0.0/microsoft.extensions.options.8.0.0.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/microsoft.extensions.options.configurationextensions/8.0.0/microsoft.extensions.options.configurationextensions.8.0.0.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/microsoft.extensions.primitives/8.0.0/microsoft.extensions.primitives.8.0.0.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/system.text.json/8.0.5/system.text.json.8.0.5.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/telegram.bot/22.0.2/telegram.bot.22.0.2.nupkg.sha512",
+    "/home/cybercat/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.10/microsoft.aspnetcore.app.ref.8.0.10.nupkg.sha512"
+  ],
+  "logs": []
+}
