@@ -2,6 +2,7 @@
 {
     public static async Task Main(string[] args)
     {
+        // LocalizationManager.LocalizationManagera();
         string token =
             System.Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN")
             ?? throw new Exception("No Envirenment Variable avalible");

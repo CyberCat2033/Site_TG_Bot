@@ -1,0 +1,10 @@
+{
+  "en": {
+    "greeting": "Hello!",
+    "farewell": "Goodbye!"
+  },
+  "ru": {
+    "greeting": "Привет!",
+    "farewell": "До свидания!"
+  }
+}

@@ -1,10 +1,7 @@
-// using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
-
-// using Telegram.Bot.Types.Enums;
-
+using Telegram.Bot.Types.Enums;
 
 public class Bot
 {
@@ -17,13 +14,15 @@ public class Bot
     private static Bot? instance;
     private CancellationToken canTok { get; init; }
 
+    private const string StartMessage = "Бот был запущенн";
+
     private Bot(ITelegramBotClient _botClient, CancellationToken _canTok, string _name)
     {
         Name = _name;
         botClient = _botClient;
         canTok = _canTok;
         receiverOptions = new() { AllowedUpdates = { }, DropPendingUpdates = true };
-        commandDict = new() { };
+        commandDict = new() { ["/start"] = new StartCommand(StartMessage) };
     }
 
     public static async Task<Bot> GetInstanceAsync(string token, CancellationToken cancellation)
@@ -70,6 +69,20 @@ public class Bot
         CancellationToken token
     )
     {
-        // await client.SendTextMessageAsync(update.Message.Chat.Id, "Hi");
+        var message = update.Message;
+        var chatId = message.Chat.Id;
+
+        if (message is not { })
+            return;
+        if (message.Text is not { } messageText)
+            return;
+
+        if (message is { Type: MessageType.Text } && messageText.StartsWith("/"))
+        {
+            if (commandDict.TryGetValue(messageText.ToLower().Split()[0], out var telegramCommand))
+            {
+                await telegramCommand.ExecuteAsync(message, botClient, canTok);
+            }
+        }
     }
 }

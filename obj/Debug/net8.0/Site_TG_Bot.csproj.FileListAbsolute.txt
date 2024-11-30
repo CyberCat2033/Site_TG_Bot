@@ -15,3 +15,5 @@
 /home/cybercat/Site_TG_Bot/obj/Debug/net8.0/Site_TG_Bot.pdb
 /home/cybercat/Site_TG_Bot/obj/Debug/net8.0/Site_TG_Bot.genruntimeconfig.cache
 /home/cybercat/Site_TG_Bot/obj/Debug/net8.0/ref/Site_TG_Bot.dll
+/home/cybercat/Site_TG_Bot/bin/Debug/net8.0/Newtonsoft.Json.dll
+/home/cybercat/Site_TG_Bot/obj/Debug/net8.0/Site_TG_Bot.sourcelink.json

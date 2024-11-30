@@ -3,7 +3,7 @@ using Telegram.Bot.Types;
 
 public class StartCommand : IBotCommand
 {
-    public StartCommand() { }
+    public StartCommand(string Message) { }
 
     public async Task ExecuteAsync(
         Message message,
