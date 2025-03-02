@@ -1,10 +1,22 @@
+using Telegram.Bot;
+
 public class ChatData
 {
-    public readonly ILocale locale;
+    public readonly ILocale Locale = LocalizationManager.GetLocale("en");
 
     public List<ILostReport> reports = new();
 
-    public ChatData() { }
+    public UserSession userSession;
 
-    public async Task CreateReportAsync() { }
+    public ChatData(TelegramBotClient bot, long chatId)
+    {
+        userSession = new UserSession(bot, chatId);
+    }
+
+    public void AddReport(ILostReport report)
+    {
+        reports.Add(report);
+    }
+
+    public ChatData() { }
 }

@@ -1,22 +1,24 @@
 using System.Collections.Concurrent;
+using Telegram.Bot;
 
 public static class ChatDataManager
 {
-    public static ConcurrentDictionary<long, ChatData> ChatDatas = new();
+    private static ConcurrentDictionary<long, ChatData> ChatDataDictionary = new();
 
-    public static void TryAdd(long chatId)
+    public static bool TryAdd(long chatId, TelegramBotClient bot)
     {
-        if (!ChatDatas.TryAdd(chatId, new ChatData()))
+        if (ChatDataDictionary.TryAdd(chatId, new ChatData(bot, chatId)))
         {
-            throw new ArgumentException("Bot is already started");
+            return true;
         }
+        return false;
     }
 
-    public static Task<ChatData> TryGetChatData(long chatId)
+    public static ChatData GetChatData(long chatId)
     {
-        if (ChatDatas.TryGetValue(chatId, out var chatData))
+        if (ChatDataDictionary.TryGetValue(chatId, out var chatData))
         {
-            return Task.FromResult(chatData);
+            return chatData;
         }
         throw new ArgumentException("Please start bot first");
     }

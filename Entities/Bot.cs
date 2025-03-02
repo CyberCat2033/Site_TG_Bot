@@ -5,33 +5,39 @@ using Telegram.Bot.Types.Enums;
 
 public class Bot
 {
-    private ITelegramBotClient botClient { get; init; }
+    private UserSession session;
+    private TelegramBotClient botClient { get; init; }
     public string? StartTime { get; private set; }
-    public string? EndTime { get; private set; }
+    public string? StopTime { get; private set; }
     private ReceiverOptions receiverOptions { get; init; }
-    private readonly Dictionary<string, IBotCommand> commandDict;
-    public string? Name { get; private set; }
+    private readonly Dictionary<string, TelegramBotCommand> commandDict;
+    public static string? Name { get; private set; }
     private static Bot? instance;
-    private CancellationToken canTok { get; init; }
+    private CancellationTokenSource cts { get; init; }
 
     private const string StartMessage = "Бот был запущенн";
 
-    private Bot(ITelegramBotClient _botClient, CancellationToken _canTok, string _name)
+    private Bot(TelegramBotClient _botClient, CancellationTokenSource _cts, string _name)
     {
         Name = _name;
         botClient = _botClient;
-        canTok = _canTok;
+        cts = _cts;
         receiverOptions = new() { AllowedUpdates = { }, DropPendingUpdates = true };
-        commandDict = new() { ["/start"] = new StartCommand(StartMessage) };
+        commandDict = new()
+        {
+            ["/start"] = new StartCommand("/start", "Start the bot"),
+            ["/newreport"] = new NewReportCommand("/newreport", "Create a new report"),
+        };
+        _botClient.SetMyCommands(commandDict.Select(x => x.Value));
     }
 
-    public static async Task<Bot> GetInstanceAsync(string token, CancellationToken cancellation)
+    public static async Task<Bot> GetInstanceAsync(string token, CancellationTokenSource _cts)
     {
         if (instance == null)
         {
             var _botClient = new TelegramBotClient(token);
-            var _name = (await _botClient.GetMyNameAsync());
-            instance = new Bot(_botClient, cancellation, _name.Name);
+            var _name = (await _botClient.GetMyName());
+            instance = new Bot(_botClient, _cts, _name.Name);
         }
         return instance;
     }
@@ -41,6 +47,7 @@ public class Bot
         StartTime = DateTime.Now.ToString();
         Console.ForegroundColor = ConsoleColor.Green;
         await Console.Out.WriteLineAsync($"The {Name} Bot has been started at {StartTime}");
+        Console.ResetColor();
     }
 
     public async Task Start()
@@ -50,8 +57,25 @@ public class Bot
             HandleUpdateAsync,
             HandlePollingErrorAsync,
             receiverOptions,
-            canTok
+            cts.Token
         );
+    }
+
+    public async Task Stop()
+    {
+        StopTime = DateTime.Now.ToString();
+        cts.Cancel();
+        Console.BackgroundColor = ConsoleColor.DarkRed;
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        await Console.Out.WriteAsync($"The Bot was stopped at {StopTime}");
+        Console.ResetColor();
+    }
+
+    private static async Task LogError(Exception e)
+    {
+        Console.BackgroundColor = ConsoleColor.Red;
+        await Console.Out.WriteLineAsync($"Exception:{e}, exception message: {e.Message}");
+        Console.ResetColor();
     }
 
     private async Task HandlePollingErrorAsync(
@@ -60,7 +84,7 @@ public class Bot
         CancellationToken token
     )
     {
-        await Console.Out.WriteLineAsync(exception.Message);
+        await LogError(exception);
     }
 
     private async Task HandleUpdateAsync(
@@ -70,7 +94,6 @@ public class Bot
     )
     {
         var message = update.Message;
-        var chatId = message.Chat.Id;
 
         if (message is not { })
             return;
@@ -81,8 +104,36 @@ public class Bot
         {
             if (commandDict.TryGetValue(messageText.ToLower().Split()[0], out var telegramCommand))
             {
-                await telegramCommand.ExecuteAsync(message, botClient, canTok);
+                try
+                {
+                    await telegramCommand.ExecuteAsync(message, botClient, token);
+                    return;
+                }
+                catch (Exception exception)
+                {
+                    await client.SendMessage(
+                        chatId: message.Chat.Id,
+                        text: exception.Message,
+                        cancellationToken: token
+                    );
+                    await LogError(exception);
+                    return;
+                }
             }
+        }
+        try
+        {
+            var data = ChatDataManager.GetChatData(message.Chat.Id);
+            session = data.userSession;
+            if (!session.IsNull())
+            {
+                await session.HandleInput(messageText);
+                await client.SendMessage(message.Chat.Id, "OK");
+            }
+        }
+        catch (Exception ex)
+        {
+            await client.SendMessage(message.Chat.Id, ex.Message, cancellationToken: token);
         }
     }
 }

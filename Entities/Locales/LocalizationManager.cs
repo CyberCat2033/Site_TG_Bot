@@ -18,11 +18,11 @@ public static class LocalizationManager
         }
     }
 
-    public static Task<Locale> GetLocaleAsync(string language)
+    public static Locale GetLocale(string language)
     {
         if (Locales.TryGetValue(language, out var locale))
         {
-            return Task.FromResult(locale);
+            return locale;
         }
         throw new ArgumentException("No Such language was provided");
     }
