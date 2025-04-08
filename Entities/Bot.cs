@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -5,54 +6,52 @@ using Telegram.Bot.Types.Enums;
 
 public class Bot
 {
-    private UserSession session;
-    private TelegramBotClient botClient { get; init; }
+    public readonly TelegramBotClient botClient;
+    private readonly ReceiverOptions receiverOptions;
+    private readonly CancellationTokenSource cts;
+
+    public static Dictionary<long, LostReportFlowHandler> handlers = new();
+    public static Bot? Instance { get; private set; }
+    public static string? Name { get; private set; }
     public string? StartTime { get; private set; }
     public string? StopTime { get; private set; }
-    private ReceiverOptions receiverOptions { get; init; }
-    private readonly Dictionary<string, TelegramBotCommand> commandDict;
-    public static string? Name { get; private set; }
-    private static Bot? instance;
-    private CancellationTokenSource cts { get; init; }
+    public static UserRepository? userRepository;
+    public static LostReportRepository? lostReportRepository;
+    public static BotContext? context;
 
-    private const string StartMessage = "Бот был запущенн";
-
-    private Bot(TelegramBotClient _botClient, CancellationTokenSource _cts, string _name)
+    private Bot(TelegramBotClient botClient, CancellationTokenSource cts, string name)
     {
-        Name = _name;
-        botClient = _botClient;
-        cts = _cts;
-        receiverOptions = new() { AllowedUpdates = { }, DropPendingUpdates = true };
-        commandDict = new()
-        {
-            ["/start"] = new StartCommand("/start", "Start the bot"),
-            ["/newreport"] = new NewReportCommand("/newreport", "Create a new report"),
-        };
-        _botClient.SetMyCommands(commandDict.Select(x => x.Value));
+        Name = name;
+        this.botClient = botClient;
+        this.cts = cts;
+
+        receiverOptions = new ReceiverOptions { AllowedUpdates = { }, DropPendingUpdates = true };
+        var optionsBuilder = new DbContextOptionsBuilder<BotContext>();
+        var options = optionsBuilder
+            .UseSqlite("Data Source=/home/cybercat/Site_TG_Bot/DataBases/bot.db")
+            .LogTo(message => System.Diagnostics.Debug.WriteLine(message))
+            .Options;
+        context = new BotContext(options);
+        userRepository = new(context);
+        lostReportRepository = new(context);
     }
 
-    public static async Task<Bot> GetInstanceAsync(string token, CancellationTokenSource _cts)
+    public static async Task<Bot> GetInstanceAsync(string token, CancellationTokenSource cts)
     {
-        if (instance == null)
+        if (Instance == null)
         {
-            var _botClient = new TelegramBotClient(token);
-            var _name = (await _botClient.GetMyName());
-            instance = new Bot(_botClient, _cts, _name.Name);
+            var botClient = new TelegramBotClient(token);
+            var botName = (await botClient.GetMyName()).Name;
+            Instance = new Bot(botClient, cts, botName);
         }
-        return instance;
+        return Instance;
     }
 
-    private async Task startNotification()
+    public async Task StartAsync()
     {
         StartTime = DateTime.Now.ToString();
-        Console.ForegroundColor = ConsoleColor.Green;
-        await Console.Out.WriteLineAsync($"The {Name} Bot has been started at {StartTime}");
-        Console.ResetColor();
-    }
+        await LogMessage($"The {Name} Bot has been started at {StartTime}", ConsoleColor.Green);
 
-    public async Task Start()
-    {
-        await startNotification();
         await botClient.ReceiveAsync(
             HandleUpdateAsync,
             HandlePollingErrorAsync,
@@ -61,21 +60,34 @@ public class Bot
         );
     }
 
-    public async Task Stop()
+    public async Task StopAsync()
     {
         StopTime = DateTime.Now.ToString();
-        cts.Cancel();
-        Console.BackgroundColor = ConsoleColor.DarkRed;
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        await Console.Out.WriteAsync($"The Bot was stopped at {StopTime}");
+        await cts.CancelAsync();
+        await LogMessage(
+            $"The Bot was stopped at {StopTime}",
+            ConsoleColor.Yellow,
+            ConsoleColor.DarkRed
+        );
+    }
+
+    private static async Task LogMessage(
+        string message,
+        ConsoleColor foreground,
+        ConsoleColor? background = null
+    )
+    {
+        if (background.HasValue)
+            Console.BackgroundColor = background.Value;
+
+        Console.ForegroundColor = foreground;
+        await Console.Out.WriteLineAsync($"{DateTime.Now:HH:mm:ss} - {message}");
         Console.ResetColor();
     }
 
     private static async Task LogError(Exception e)
     {
-        Console.BackgroundColor = ConsoleColor.Red;
-        await Console.Out.WriteLineAsync($"Exception:{e}, exception message: {e.Message}");
-        Console.ResetColor();
+        await LogMessage($"Exception: {e}\nMessage: {e.Message}", ConsoleColor.Red);
     }
 
     private async Task HandlePollingErrorAsync(
@@ -93,47 +105,117 @@ public class Bot
         CancellationToken token
     )
     {
-        var message = update.Message;
+        await LogMessage($"Update {update.Id} received\nType: {update.Type}", ConsoleColor.Green);
 
-        if (message is not { })
-            return;
-        if (message.Text is not { } messageText)
-            return;
-
-        if (message is { Type: MessageType.Text } && messageText.StartsWith("/"))
+        if (update.CallbackQuery is { } callbackquery)
         {
-            if (commandDict.TryGetValue(messageText.ToLower().Split()[0], out var telegramCommand))
+            var queryId = callbackquery.From.Id;
+            if (!handlers.ContainsKey(queryId))
             {
-                try
-                {
-                    await telegramCommand.ExecuteAsync(message, botClient, token);
-                    return;
-                }
-                catch (Exception exception)
-                {
-                    await client.SendMessage(
-                        chatId: message.Chat.Id,
-                        text: exception.Message,
-                        cancellationToken: token
-                    );
-                    await LogError(exception);
-                    return;
-                }
+                handlers.TryAdd(
+                    queryId,
+                    new LostReportFlowHandler(lostReportRepository, Instance.botClient)
+                );
             }
+            var user = await userRepository.GetByChatIdAsync(chatId: callbackquery.From.Id);
+            var handlerFlow = handlers[queryId];
+            await client.AnswerCallbackQuery(callbackquery.Id);
+            if (!handlerFlow.IsComplete())
+                return;
+            switch (callbackquery.Data.Split()[0])
+            {
+                case "selectReport":
+                    await SelectReport.ExecuteAsync(
+                        callbackquery.Data.Split()[1],
+                        callbackquery.From.Id,
+                        user,
+                        botClient,
+                        token,
+                        lostReportRepository
+                    );
+                    return;
+
+                case "changeDescription":
+                    handlerFlow.EditDescription();
+                    break;
+                case "changeFeedback":
+                    handlerFlow.EditFeedback();
+                    break;
+                case "changeLocation":
+                    handlerFlow.EditLocation();
+                    break;
+                case "changeName":
+                    handlerFlow.EditName();
+                    break;
+                case "changePhoto":
+                    handlerFlow.EditPhoto();
+                    break;
+                default:
+                    return;
+            }
+            await botClient.SendMessage(queryId, handlerFlow.GetCurrentPrompt());
+            return;
         }
+        var message = update.Message;
+        // if (message.Type != MessageType.Text && message.Type != MessageType.Photo)
+        // {
+        //     return;
+        // }
+        var messageText = message.Text ?? "";
+        var chatId = message.Chat.Id;
+        if (!handlers.ContainsKey(chatId))
+        {
+            handlers.TryAdd(
+                chatId,
+                new LostReportFlowHandler(lostReportRepository, Instance.botClient)
+            );
+        }
+
         try
         {
-            var data = ChatDataManager.GetChatData(message.Chat.Id);
-            session = data.userSession;
-            if (!session.IsNull())
+            if (messageText == "/start")
             {
-                await session.HandleInput(messageText);
-                await client.SendMessage(message.Chat.Id, "OK");
+                await StartCommand.ExecuteAsync(message, botClient, token, userRepository);
+                return;
+            }
+            else
+            {
+                switch (messageText)
+                {
+                    case "📝 Новая анкета о пропаже":
+                        await NewReport.ExecuteAsync(message, botClient, token, userRepository);
+                        var handlerFow = handlers[chatId];
+                        await botClient.SendMessage(chatId, handlerFow.GetCurrentPrompt());
+                        return;
+                    case "📋 Мои анкеты":
+                        await ListReports.ExecuteAsync(
+                            message,
+                            botClient,
+                            token,
+                            lostReportRepository
+                        );
+                        return;
+                }
+            }
+
+            // var user = await userRepository.GetByChatIdAsync(chatId: message.Chat.Id);
+            var handlerFlow = handlers[chatId];
+            if (!handlerFlow.IsComplete())
+            {
+                await handlerFlow.ProcessInput(message);
+                if (handlerFlow.IsComplete())
+                {
+                    await botClient.SendMessage(chatId, "Заполнение успешно законченно");
+                    return;
+                }
+
+                await botClient.SendMessage(chatId, handlerFlow.GetCurrentPrompt());
             }
         }
-        catch (Exception ex)
+        catch (ArgumentException ex)
         {
             await client.SendMessage(message.Chat.Id, ex.Message, cancellationToken: token);
+            await botClient.SendMessage(chatId, handlers[chatId].GetCurrentPrompt());
         }
     }
 }
