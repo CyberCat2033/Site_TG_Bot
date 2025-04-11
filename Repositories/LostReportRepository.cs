@@ -29,6 +29,7 @@ public class LostReportRepository
         {
             report.UserId = user.Id;
             report.User = user;
+            report.Date = DateTime.Now;
             _context.Add(report);
             await _context.SaveChangesAsync();
             return;

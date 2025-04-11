@@ -8,7 +8,6 @@ public static class SelectReport
     public static async Task ExecuteAsync(
         string input,
         long chatId,
-        User user,
         TelegramBotClient client,
         CancellationToken canTok,
         LostReportRepository repository

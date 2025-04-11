@@ -8,16 +8,5 @@
         CancellationTokenSource cts = new();
         var bot = await Bot.GetInstanceAsync(token, cts);
         await bot.StartAsync();
-
-        // while (true)
-        // {
-        //     if (Console.ReadLine()?.ToLower() is "/stop" or "/exit")
-        //     {
-        //         Console.WriteLine("FUCK");
-        //         await bot.StopAsync();
-        //         break;
-        //     }
-        // }
-        // Console.Read();
     }
 }

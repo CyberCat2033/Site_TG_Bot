@@ -9,8 +9,8 @@ public class Bot
     public readonly TelegramBotClient botClient;
     private readonly ReceiverOptions receiverOptions;
     private readonly CancellationTokenSource cts;
+    public static Dictionary<long, LostReportFlowHandler> handlers { get; } = new();
 
-    public static Dictionary<long, LostReportFlowHandler> handlers = new();
     public static Bot? Instance { get; private set; }
     public static string? Name { get; private set; }
     public string? StartTime { get; private set; }
@@ -105,7 +105,7 @@ public class Bot
         CancellationToken token
     )
     {
-        await LogMessage($"Update {update.Id} received\nType: {update.Type}", ConsoleColor.Green);
+        // await LogMessage($"Update {update.Id} received\nType: {update.Type}", ConsoleColor.Green);
 
         if (update.CallbackQuery is { } callbackquery)
         {
@@ -117,7 +117,7 @@ public class Bot
                     new LostReportFlowHandler(lostReportRepository, Instance.botClient)
                 );
             }
-            var user = await userRepository.GetByChatIdAsync(chatId: callbackquery.From.Id);
+            // var user = await userRepository.GetByChatIdAsync(chatId: callbackquery.From.Id);
             var handlerFlow = handlers[queryId];
             await client.AnswerCallbackQuery(callbackquery.Id);
             if (!handlerFlow.IsComplete())
@@ -128,7 +128,6 @@ public class Bot
                     await SelectReport.ExecuteAsync(
                         callbackquery.Data.Split()[1],
                         callbackquery.From.Id,
-                        user,
                         botClient,
                         token,
                         lostReportRepository
@@ -198,7 +197,6 @@ public class Bot
                 }
             }
 
-            // var user = await userRepository.GetByChatIdAsync(chatId: message.Chat.Id);
             var handlerFlow = handlers[chatId];
             if (!handlerFlow.IsComplete())
             {

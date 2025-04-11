@@ -26,7 +26,7 @@ public class LostReportFlowHandler
     public bool IsComplete() => _steps.Count() == 0;
 
     public string? GetCurrentPrompt() =>
-        _steps.Peek().Prompt ?? throw new Exception("No more steps");
+        _steps.Peek().Prompt ?? throw new ArgumentException("No more steps");
 
     public void EditName() => EditProp("Name");
 
@@ -57,11 +57,11 @@ public class LostReportFlowHandler
 
     public async Task ProcessInput(Message input)
     {
-        if (IsComplete())
-        {
-            await _reportRepository.AddOrUpdate(input.Chat.Id, report);
-            return;
-        }
+        // if (IsComplete())
+        // {
+        //     await _reportRepository.AddOrUpdate(input.Chat.Id, report);
+        //     return;
+        // }
 
         var step = _steps.Peek();
         var prop = step.Property!;
